@@ -39,7 +39,7 @@ class WikiSoup:
             roles_from_web = urlopen(os.environ.get("BOTC_ROLES_URL", DEFAULT_ROLES_URL)).read().decode('utf-8')
             self.role_data = json.loads(roles_from_web)
             # Filter the roles
-            self.role_data = [role for role in self.role_data if self._script_filter in role['edition']]
+            self.role_data = [role for role in self.role_data if self._script_filter in (role.get('edition') or 'unk')]
             night_from_web = urlopen(os.environ.get("BOTC_NIGHTSHEET_URL", DEFAULT_NIGHTSHEET_URL)).read().decode('utf-8')
             self.night_data = json.loads(night_from_web)
 
