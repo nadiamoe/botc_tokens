@@ -1,11 +1,19 @@
 """A class to act as a cache for wiki access. That way we don't have to keep hitting the wiki for the same page."""
 import json
+import time
 import urllib.error
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from bs4 import BeautifulSoup
 
 from .. import data_dir
+
+BROWSER_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+}
 
 
 class WikiSoup:
@@ -23,45 +31,34 @@ class WikiSoup:
         self._script_filter = script_filter
 
     def load_from_web(self):
-        """Load the role data from the wiki."""
-        roles_from_web = urlopen("https://script.bloodontheclocktower.com/data/roles.json").read().decode('utf-8')
-        self.role_data = json.loads(roles_from_web)
-        # Filter the roles
-        self.role_data = [role for role in self.role_data if self._script_filter in role['version']]
-        night_from_web = urlopen("https://script.bloodontheclocktower.com/data/nightsheet.json").read().decode('utf-8')
-        self.night_data = json.loads(night_from_web)
-
-    def load_from_web_json(self, custom_url):
-        """Load the role data from the provided web hosted JSON file."""
-        roles_from_web_json = json.loads(urlopen(custom_url).read().decode('utf-8'))
-        meta_data = next((item for item in roles_from_web_json if item.get('id') == '_meta'), None)
-        version_name = None
-        if meta_data:
-            version_name = meta_data.get('name')
-        # Filter and convert the roles
-        roles_with_version = []
-        for role in roles_from_web_json:
-            if role.get('id') != '_meta':
-                role['version'] = version_name if role.get('version') is None else role['version']
-                role['name'] = role['name']
-                role['ability'] = role.get('ability')
-                roles_with_version.append(role)
-        self.role_data = roles_with_version
+            """Load the role data from the wiki."""
+            roles_from_web = urlopen("https://release.botc.app/resources/data/roles.json").read().decode('utf-8')
+            self.role_data = json.loads(roles_from_web)
+            # Filter the roles
+            self.role_data = [role for role in self.role_data if self._script_filter in role['edition']]
+            night_from_web = urlopen("https://release.botc.app/resources/data/nightsheet.json").read().decode('utf-8')
+            self.night_data = json.loads(night_from_web)
 
     def _get_wiki_soup(self, role_name):
         """Take a role name and return a BeautifulSoup object for the role's wiki page."""
         # Check if we have already seen this role
         role_name = role_name.replace(" ", "_")
         if role_name not in self.wiki_soups:
-            # Make a special check for Spirit of Ivory, since it has a different capitalization scheme.
             url = f"https://wiki.bloodontheclocktower.com/{role_name}"
-            try:
-                html = urlopen(url).read()
-            except urllib.error.HTTPError as e:
-                if e.code == 404:
-                    raise RuntimeError(f"Could not find role {role_name} at {url}")
-                else:
-                    raise
+            html = None
+            last_error = None
+            for attempt in range(3):
+                try:
+                    req = Request(url, headers=BROWSER_HEADERS)
+                    html = urlopen(req).read()
+                    break
+                except urllib.error.HTTPError as e:
+                    last_error = e
+                    if e.code == 404:
+                        raise RuntimeError(f"Could not find role {role_name} at {url}")
+                    time.sleep(1.5 * (attempt + 1))  # petite pause croissante avant de réessayer
+            if html is None:
+                raise last_error
             self.wiki_soups[role_name] = BeautifulSoup(html, 'html5lib')
         return self.wiki_soups[role_name]
 
