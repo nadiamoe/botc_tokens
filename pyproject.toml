@@ -42,6 +42,9 @@ botc_tokens = "botc_tokens:__main__.main"
 [tool.setuptools_scm]
 write_to = "src/botc_tokens/__version__.py"
 
+[tool.setuptools.package-data]
+botc_tokens = ["data/*.json", "data/components/*"]
+
 [tool.setuptools.dynamic]
 version = {attr = "botc_tokens.__version__.__version__"}
 
