@@ -201,3 +201,34 @@ def test_load_from_web_json_without_meta():
             "version": None,
         },
     ]
+
+
+def _requested_urls(wiki_soup):
+    """Run load_from_web and return the URLs it fetched."""
+    with web_mock():
+        with mock.patch("botc_tokens.helpers.wiki_soup.urlopen") as urlopen_mock:
+            urlopen_mock.return_value.read.side_effect = testhelpers.webmock_list
+            wiki_soup.load_from_web()
+    return [call.args[0] for call in urlopen_mock.call_args_list]
+
+
+def test_load_from_web_default_urls(monkeypatch):
+    """Use the release.botc.app URLs when no override is set."""
+    monkeypatch.delenv("BOTC_ROLES_URL", raising=False)
+    monkeypatch.delenv("BOTC_NIGHTSHEET_URL", raising=False)
+
+    assert _requested_urls(WikiSoup()) == [
+        "https://release.botc.app/resources/data/roles.json",
+        "https://release.botc.app/resources/data/nightsheet.json",
+    ]
+
+
+def test_load_from_web_env_overrides(monkeypatch):
+    """Let env vars replace the roles and nightsheet URLs."""
+    monkeypatch.setenv("BOTC_ROLES_URL", "https://example.com/roles.json")
+    monkeypatch.setenv("BOTC_NIGHTSHEET_URL", "https://example.com/night.json")
+
+    assert _requested_urls(WikiSoup()) == [
+        "https://example.com/roles.json",
+        "https://example.com/night.json",
+    ]

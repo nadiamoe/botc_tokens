@@ -1,5 +1,6 @@
 """A class to act as a cache for wiki access. That way we don't have to keep hitting the wiki for the same page."""
 import json
+import os
 import time
 import urllib.error
 from urllib.request import Request, urlopen
@@ -14,6 +15,9 @@ BROWSER_HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
 }
+
+DEFAULT_ROLES_URL = "https://release.botc.app/resources/data/roles.json"
+DEFAULT_NIGHTSHEET_URL = "https://release.botc.app/resources/data/nightsheet.json"
 
 
 class WikiSoup:
@@ -32,11 +36,11 @@ class WikiSoup:
 
     def load_from_web(self):
             """Load the role data from the wiki."""
-            roles_from_web = urlopen("https://release.botc.app/resources/data/roles.json").read().decode('utf-8')
+            roles_from_web = urlopen(os.environ.get("BOTC_ROLES_URL", DEFAULT_ROLES_URL)).read().decode('utf-8')
             self.role_data = json.loads(roles_from_web)
             # Filter the roles
             self.role_data = [role for role in self.role_data if self._script_filter in role['edition']]
-            night_from_web = urlopen("https://release.botc.app/resources/data/nightsheet.json").read().decode('utf-8')
+            night_from_web = urlopen(os.environ.get("BOTC_NIGHTSHEET_URL", DEFAULT_NIGHTSHEET_URL)).read().decode('utf-8')
             self.night_data = json.loads(night_from_web)
 
     def _get_wiki_soup(self, role_name):
